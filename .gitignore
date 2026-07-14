@@ -1,0 +1,10 @@
+# Internal planning brief — kept locally, not published
+PID-Playground-BRIEF.md
+
+# OS / editor cruft — nothing to build here, it's a static site
+.DS_Store
+Thumbs.db
+*~
+*.swp
+.vscode/
+.idea/

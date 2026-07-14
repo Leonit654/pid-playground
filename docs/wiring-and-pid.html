@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Wiring and PID explainer for PID Playground — how the Arduino UNO + L298N + encoder motor controller is wired, and how the feed-forward + PID control law works.">
+<title>Wiring &amp; PID — PID Playground</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%230d7c86'/><path d='M3 12h3l2.5 6 4-13 2.5 9 1.5-4H21' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<style>
+:root{
+  color-scheme: light dark;
+  --bg:#e9eef4; --panel:#ffffff; --panel-2:#f3f7fb;
+  --ink:#0f1b2d; --muted:#54657c; --faint:#8091a6;
+  --line:#d7e0ea; --line-strong:#c2cede;
+  --accent:#0d7c86; --accent-ink:#0a5c64; --accent-soft:#0d7c8618;
+  --amber:#c07d1f; --warn:#c1631a; --ok:#1f9d55;
+  --wire:#93a5ba;
+  --radius:15px; --shadow:0 1px 1px rgba(15,27,45,.05),0 10px 26px rgba(15,27,45,.07);
+  --mono:ui-monospace,"SFMono-Regular","SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#080e1a; --panel:#0f1a2b; --panel-2:#0c1524;
+  --ink:#e7eef7; --muted:#93a4b9; --faint:#64768c;
+  --line:#1b2a3f; --line-strong:#294059;
+  --accent:#38cabd; --accent-ink:#7fe6db; --accent-soft:#38cabd1f;
+  --amber:#e0a24a; --warn:#e0954a; --ok:#43c07e; --wire:#5d7290;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 34px rgba(0,0,0,.38);
+}}
+:root[data-theme="dark"]{
+  --bg:#080e1a; --panel:#0f1a2b; --panel-2:#0c1524;
+  --ink:#e7eef7; --muted:#93a4b9; --faint:#64768c;
+  --line:#1b2a3f; --line-strong:#294059;
+  --accent:#38cabd; --accent-ink:#7fe6db; --accent-soft:#38cabd1f;
+  --amber:#e0a24a; --warn:#e0954a; --ok:#43c07e; --wire:#5d7290;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 34px rgba(0,0,0,.38);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);line-height:1.6;color:var(--ink);
+  background:radial-gradient(1200px 600px at 85% -10%,var(--accent-soft),transparent 60%),var(--bg);
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:860px;margin:0 auto;padding:26px 20px 60px}
+a{color:var(--accent-ink)}
+h1{font-size:1.5rem;margin:0} h2{font-size:1.1rem;margin:0 0 10px}
+h3{font-size:.95rem;margin:18px 0 4px}
+.sub{color:var(--muted);margin:4px 0 0}
+.back{display:inline-flex;align-items:center;gap:7px;font-size:.85rem;font-weight:600;
+  text-decoration:none;color:var(--accent-ink);margin-bottom:18px}
+header.top{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.logo{width:44px;height:44px;border-radius:12px;flex:none;
+  background:linear-gradient(150deg,var(--accent),var(--accent-ink));display:grid;place-items:center}
+.logo svg{width:28px;height:28px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:20px 22px;margin:16px 0}
+.card > h2{color:var(--ink)}
+.kicker{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--accent-ink);font-weight:700;margin-bottom:4px}
+p{margin:8px 0} code{font-family:var(--mono);font-size:.9em;background:var(--panel-2);
+  border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.9rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.mono,code{font-family:var(--mono)}
+td.mono{font-family:var(--mono);font-size:.86rem;color:var(--accent-ink)}
+pre{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+  overflow-x:auto;font-family:var(--mono);font-size:.82rem;line-height:1.6;margin:12px 0}
+pre .cm{color:var(--faint)}
+.note{border-left:3px solid var(--accent);background:var(--accent-soft);padding:10px 14px;border-radius:0 8px 8px 0;margin:14px 0;font-size:.9rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:10px}
+.grid h3{margin-top:0}
+.grid p{font-size:.88rem;color:var(--muted);margin:2px 0 0}
+.diagram{width:100%;height:auto;display:block;margin:6px 0}
+/* SVG wiring diagram styling (theme-aware) */
+.d-box{fill:var(--panel-2);stroke:var(--line-strong);stroke-width:1.5;rx:10}
+.d-mcu{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+.d-label{fill:var(--ink);font:600 13px var(--sans)}
+.d-sub{fill:var(--muted);font:11px var(--mono)}
+.d-wire{stroke:var(--wire);stroke-width:2;fill:none}
+.d-wire-pwr{stroke:var(--warn);stroke-width:2;fill:none}
+.d-pin{fill:var(--accent-ink);font:600 10.5px var(--mono)}
+.d-arrow{fill:var(--wire)}
+footer{margin-top:30px;text-align:center;color:var(--faint);font-size:.82rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← Back to the Playground</a>
+
+  <header class="top">
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12h3l2.5 6 4-13 2.5 9 1.5-4H21"/></svg>
+    </span>
+    <div>
+      <h1>Wiring &amp; PID</h1>
+      <p class="sub">How the motor controller is built, and how the control law works.</p>
+    </div>
+  </header>
+
+  <!-- ============================ Wiring ============================ -->
+  <section class="card">
+    <div class="kicker">The hardware</div>
+    <h2>Arduino UNO + L298N + gearmotor with encoder</h2>
+    <p>A single-direction velocity controller: the Arduino reads motor speed from a quadrature encoder,
+       runs the PID at 40&nbsp;Hz, and drives the motor through an L298N H-bridge with a PWM signal.</p>
+
+    <svg class="diagram" viewBox="0 0 720 300" role="img" aria-label="Block diagram: Arduino drives an L298N which powers the motor; the encoder feeds speed back to the Arduino.">
+      <!-- boxes -->
+      <rect class="d-box d-mcu" x="30" y="110" width="160" height="80" rx="10"/>
+      <text class="d-label" x="110" y="142" text-anchor="middle">Arduino UNO</text>
+      <text class="d-sub"   x="110" y="162" text-anchor="middle">PID @ 40 Hz</text>
+
+      <rect class="d-box" x="290" y="110" width="150" height="80" rx="10"/>
+      <text class="d-label" x="365" y="142" text-anchor="middle">L298N</text>
+      <text class="d-sub"   x="365" y="162" text-anchor="middle">H-bridge driver</text>
+
+      <rect class="d-box" x="540" y="110" width="150" height="80" rx="10"/>
+      <text class="d-label" x="615" y="142" text-anchor="middle">DC gearmotor</text>
+      <text class="d-sub"   x="615" y="162" text-anchor="middle">5:1 + encoder</text>
+
+      <!-- Arduino -> L298N (control) -->
+      <path class="d-wire" d="M190 140 H285"/>
+      <polygon class="d-arrow" points="285,140 277,136 277,144"/>
+      <text class="d-pin" x="238" y="132" text-anchor="middle">ENA·IN1·IN2</text>
+      <text class="d-sub" x="238" y="103" text-anchor="middle" style="font-size:10px">pins 5 · 7 · 8</text>
+
+      <!-- L298N -> Motor (power) -->
+      <path class="d-wire-pwr" d="M440 140 H535"/>
+      <polygon class="d-arrow" points="535,140 527,136 527,144" style="fill:var(--warn)"/>
+      <text class="d-pin" x="487" y="132" text-anchor="middle" style="fill:var(--warn)">OUT1 / OUT2</text>
+
+      <!-- Motor encoder -> Arduino (feedback) -->
+      <path class="d-wire" d="M615 190 V245 H110 V190"/>
+      <polygon class="d-arrow" points="110,190 106,198 114,198"/>
+      <text class="d-pin" x="360" y="238" text-anchor="middle">encoder A / B  →  pins 2 · 3 (interrupts)</text>
+
+      <text class="d-sub" x="360" y="278" text-anchor="middle">solid = signal · orange = motor power · loop = speed feedback</text>
+    </svg>
+
+    <h3>Pin map</h3>
+    <table>
+      <thead><tr><th>Arduino pin</th><th>Connects to</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">D5 (PWM)</td><td class="mono">L298N ENA</td><td>motor speed (PWM 0–255)</td></tr>
+        <tr><td class="mono">D7</td><td class="mono">L298N IN1</td><td>direction</td></tr>
+        <tr><td class="mono">D8</td><td class="mono">L298N IN2</td><td>direction</td></tr>
+        <tr><td class="mono">D2 (INT0)</td><td class="mono">encoder A</td><td>quadrature channel A</td></tr>
+        <tr><td class="mono">D3 (INT1)</td><td class="mono">encoder B</td><td>quadrature channel B</td></tr>
+        <tr><td class="mono">GND</td><td class="mono">L298N &amp; encoder GND</td><td>common ground (required)</td></tr>
+      </tbody>
+    </table>
+    <div class="note">Power the motor from the L298N's own supply, not the Arduino's 5&nbsp;V. Always tie all
+      grounds together. Adjust <code>COUNTS_PER_OUTPUT_REV</code> in the firmware to your encoder + gearing
+      so reported RPM is correct.</div>
+  </section>
+
+  <!-- ============================ The loop ============================ -->
+  <section class="card">
+    <div class="kicker">The control law</div>
+    <h2>Feed-forward + PID, once every 25&nbsp;ms</h2>
+    <p>Each tick, the Arduino reads how many encoder counts arrived since last time, converts that to RPM,
+       and computes a PWM output. Here's the whole loop — the simulator runs this <em>exactly</em>:</p>
+<pre><span class="cm">// dt = 0.025 s (40 Hz)</span>
+rpmRaw     = |counts| / 70 / dt * 60          <span class="cm">// encoder → RPM</span>
+rpm        = S*rpm + (1-S)*rpmRaw             <span class="cm">// EMA smoothing, S = 0.6</span>
+error      = target - rpm
+derivative = -(rpm - rpmPrev) / dt            <span class="cm">// on the MEASUREMENT</span>
+feedForward = target>0 ? (offset + slope*target) : 0
+
+output = FF + Kp*error + integral + Kd*derivative
+if (output &gt; 0 &amp;&amp; output &lt; 255) integral += Ki*error*dt   <span class="cm">// anti-windup</span>
+integral = clamp(integral, -255, 255)
+output   = FF + Kp*error + integral + Kd*derivative        <span class="cm">// recompute</span>
+output   = clamp(output, 0, 255)
+if (target &lt;= 0) { output = 0; integral = 0 }              <span class="cm">// stop resets I</span></pre>
+
+    <div class="grid">
+      <div>
+        <h3 style="color:var(--amber)">Feed-forward does most of the work</h3>
+        <p><code>FF = offset + slope·target</code> pushes out the PWM the motor needs <em>before</em> any
+           error is measured. Match it to the motor and feed-forward alone hits the target.</p>
+      </div>
+      <div>
+        <h3 style="color:var(--accent-ink)">Integral erases the leftover</h3>
+        <p>Whatever FF and P miss, the I term accumulates until steady-state error is zero. Under load it
+           climbs to supply the extra push.</p>
+      </div>
+      <div>
+        <h3 style="color:var(--warn)">Anti-windup freezes I at the rails</h3>
+        <p>Integration only happens while <code>0 &lt; output &lt; 255</code>. When the output saturates, the
+           integral stops growing, so it can't wind up and overshoot on recovery.</p>
+      </div>
+      <div>
+        <h3>Derivative on the measurement</h3>
+        <p>Using <code>−(Δspeed)/dt</code> instead of the error means a step change in target causes no
+           derivative "kick" — D only reacts to real speed changes, damping them.</p>
+      </div>
+      <div>
+        <h3>Smoothing tames the encoder</h3>
+        <p>At 40&nbsp;Hz each count is ≈34&nbsp;RPM, so the raw reading is a staircase. The EMA weight
+           <code>S</code> calms it — at the cost of a little lag.</p>
+      </div>
+      <div>
+        <h3>Why 25&nbsp;ms?</h3>
+        <p>40&nbsp;Hz is fast enough to catch the motor's ~0.12&nbsp;s response, slow enough that each tick
+           gathers plenty of encoder counts for a clean speed estimate.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ Protocol ============================ -->
+  <section class="card">
+    <div class="kicker">Talking to it</div>
+    <h2>Serial protocol · 115200 baud</h2>
+    <p>Newline-terminated. Telemetry streams ~40×/sec; commands are single lines.</p>
+<pre>SP:&lt;target&gt;,RPM:&lt;speed&gt;,OUT:&lt;pwm&gt;
+<span class="cm">// with 'r' debug on:</span> SP:400,RPM:398,OUT:110,dCounts:12,A:1,B:0</pre>
+    <table>
+      <thead><tr><th>Command</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">&lt;number&gt;</td><td>set target RPM (0–1000)</td></tr>
+        <tr><td class="mono">s</td><td>stop the motor (target 0, clears the integral)</td></tr>
+        <tr><td class="mono">p &lt;v&gt;</td><td>set Kp</td></tr>
+        <tr><td class="mono">i &lt;v&gt;</td><td>set Ki</td></tr>
+        <tr><td class="mono">d &lt;v&gt;</td><td>set Kd</td></tr>
+        <tr><td class="mono">r</td><td>toggle raw encoder debug fields</td></tr>
+      </tbody>
+    </table>
+    <div class="note">The stock firmware has no command for feed-forward or smoothing — those are compiled-in
+      constants, which is why the app disables those sliders in Hardware mode. Adding <code>o</code>/<code>f</code>
+      commands is on the roadmap.</div>
+  </section>
+
+  <footer>
+    Part of <a href="../index.html">PID Playground</a> · firmware: <code>firmware/v1.ino</code> · MIT
+  </footer>
+</div>
+</body>
+</html>
