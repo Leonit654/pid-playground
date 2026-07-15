@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="Wiring and PID explainer for PID Playground — how the Arduino UNO + L298N + encoder motor controller is wired, and how the feed-forward + PID control law works.">
+<meta name="description" content="Wiring and PID explainer for PID Playground — full schematic, bill of materials and netlist for the Arduino UNO + L298N + encoder motor controller, and how the feed-forward + PID control law works.">
 <title>Wiring &amp; PID — PID Playground</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%230d7c86'/><path d='M3 12h3l2.5 6 4-13 2.5 9 1.5-4H21' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 <style>
@@ -15,7 +15,8 @@
   --line:#d7e0ea; --line-strong:#c2cede;
   --accent:#0d7c86; --accent-ink:#0a5c64; --accent-soft:#0d7c8618;
   --amber:#c07d1f; --warn:#c1631a; --ok:#1f9d55;
-  --wire:#93a5ba;
+  --sig:#1f6fb2; --enc:#1d9a67; --pwr12:#c6462e; --pwr5:#b57b1c; --mot:#8a4bc0;
+  --sheet:#fbfdfe; --griddot:#d9e2ec; --boxfill:#eef4fa;
   --radius:15px; --shadow:0 1px 1px rgba(15,27,45,.05),0 10px 26px rgba(15,27,45,.07);
   --mono:ui-monospace,"SFMono-Regular","SF Mono",Menlo,Consolas,monospace;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -25,7 +26,9 @@
   --ink:#e7eef7; --muted:#93a4b9; --faint:#64768c;
   --line:#1b2a3f; --line-strong:#294059;
   --accent:#38cabd; --accent-ink:#7fe6db; --accent-soft:#38cabd1f;
-  --amber:#e0a24a; --warn:#e0954a; --ok:#43c07e; --wire:#5d7290;
+  --amber:#e0a24a; --warn:#e0954a; --ok:#43c07e;
+  --sig:#5fb0ee; --enc:#4ecb92; --pwr12:#f0796b; --pwr5:#eeb15c; --mot:#c495e8;
+  --sheet:#0c1524; --griddot:#1d2d44; --boxfill:#132238;
   --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 34px rgba(0,0,0,.38);
 }}
 :root[data-theme="dark"]{
@@ -33,14 +36,16 @@
   --ink:#e7eef7; --muted:#93a4b9; --faint:#64768c;
   --line:#1b2a3f; --line-strong:#294059;
   --accent:#38cabd; --accent-ink:#7fe6db; --accent-soft:#38cabd1f;
-  --amber:#e0a24a; --warn:#e0954a; --ok:#43c07e; --wire:#5d7290;
+  --amber:#e0a24a; --warn:#e0954a; --ok:#43c07e;
+  --sig:#5fb0ee; --enc:#4ecb92; --pwr12:#f0796b; --pwr5:#eeb15c; --mot:#c495e8;
+  --sheet:#0c1524; --griddot:#1d2d44; --boxfill:#132238;
   --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 34px rgba(0,0,0,.38);
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--sans);line-height:1.6;color:var(--ink);
   background:radial-gradient(1200px 600px at 85% -10%,var(--accent-soft),transparent 60%),var(--bg);
   -webkit-font-smoothing:antialiased}
-.wrap{max-width:860px;margin:0 auto;padding:26px 20px 60px}
+.wrap{max-width:1020px;margin:0 auto;padding:26px 20px 60px}
 a{color:var(--accent-ink)}
 h1{font-size:1.5rem;margin:0} h2{font-size:1.1rem;margin:0 0 10px}
 h3{font-size:.95rem;margin:18px 0 4px}
@@ -58,7 +63,7 @@ header.top{display:flex;align-items:center;gap:14px;margin-bottom:22px}
 p{margin:8px 0} code{font-family:var(--mono);font-size:.9em;background:var(--panel-2);
   border:1px solid var(--line);border-radius:5px;padding:1px 5px}
 table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.9rem}
-th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 td.mono,code{font-family:var(--mono)}
 td.mono{font-family:var(--mono);font-size:.86rem;color:var(--accent-ink)}
@@ -69,17 +74,41 @@ pre .cm{color:var(--faint)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:10px}
 .grid h3{margin-top:0}
 .grid p{font-size:.88rem;color:var(--muted);margin:2px 0 0}
-.diagram{width:100%;height:auto;display:block;margin:6px 0}
-/* SVG wiring diagram styling (theme-aware) */
-.d-box{fill:var(--panel-2);stroke:var(--line-strong);stroke-width:1.5;rx:10}
-.d-mcu{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
-.d-label{fill:var(--ink);font:600 13px var(--sans)}
-.d-sub{fill:var(--muted);font:11px var(--mono)}
-.d-wire{stroke:var(--wire);stroke-width:2;fill:none}
-.d-wire-pwr{stroke:var(--warn);stroke-width:2;fill:none}
-.d-pin{fill:var(--accent-ink);font:600 10.5px var(--mono)}
-.d-arrow{fill:var(--wire)}
+.chip{display:inline-block;padding:1px 7px;border-radius:5px;font-size:.72rem;font-weight:600;
+  font-family:var(--mono);border:1px solid currentColor;
+  background:color-mix(in srgb,currentColor 12%,transparent)}
+.danger{color:var(--warn);font-weight:700}
+ol.checks{margin:8px 0 0;padding-left:22px}
+ol.checks li{margin:9px 0;padding-left:4px}
 footer{margin-top:30px;text-align:center;color:var(--faint);font-size:.82rem}
+
+/* ===================== Schematic sheet (theme-aware) ===================== */
+.sheet{overflow-x:auto;margin:12px 0 2px;border-radius:10px}
+.sheet svg{display:block;width:100%;min-width:900px;height:auto}
+.caption{color:var(--faint);font-size:.8rem;text-align:center;margin:6px 0 0}
+.sheet .sheetbg{fill:var(--sheet)}
+.sheet .griddot{fill:var(--griddot)}
+.sheet .frame{fill:none;stroke:var(--ink);stroke-width:1.4;opacity:.85}
+.sheet .box{fill:var(--boxfill);stroke:var(--ink);stroke-width:1.6}
+.sheet .encl{fill:none;stroke:var(--ink);stroke-width:1.3;stroke-dasharray:7 5;opacity:.75}
+.sheet .ttl{fill:var(--ink);font:700 15px var(--sans)}
+.sheet .sub{fill:var(--muted);font:11px var(--sans)}
+.sheet .pin{stroke:var(--ink);stroke-width:1.6;fill:none}
+.sheet .plabel{fill:var(--ink);font:12px var(--mono)}
+.sheet .note{fill:var(--muted);font:10.5px var(--sans)}
+.sheet .gsym{stroke:var(--ink);stroke-width:1.6;fill:none;stroke-linecap:round}
+.sheet .wire{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.sheet .w-sig{stroke:var(--sig)} .sheet .w-enc{stroke:var(--enc)}
+.sheet .w-pwr12{stroke:var(--pwr12)} .sheet .w-pwr5{stroke:var(--pwr5)} .sheet .w-mot{stroke:var(--mot)}
+.sheet .w-gnd{stroke:var(--ink)}
+.sheet .jdot{fill:var(--ink)}
+.sheet .wlabel{font:600 11px var(--mono)}
+.sheet .l-sig{fill:var(--sig)} .sheet .l-enc{fill:var(--enc)}
+.sheet .l-pwr12{fill:var(--pwr12)} .sheet .l-pwr5{fill:var(--pwr5)} .sheet .l-mot{fill:var(--mot)}
+.sheet .tblk{fill:none;stroke:var(--ink);stroke-width:1.2}
+.sheet .tblk-fine{stroke:var(--ink);stroke-width:.8;opacity:.7}
+.sheet .tkey{fill:var(--muted);font:9px var(--mono);letter-spacing:.06em}
+.sheet .tval{fill:var(--ink);font:600 12px var(--mono)}
 </style>
 </head>
 <body>
@@ -97,61 +126,297 @@ footer{margin-top:30px;text-align:center;color:var(--faint);font-size:.82rem}
     </div>
   </header>
 
-  <!-- ============================ Wiring ============================ -->
+  <!-- ============================ Schematic ============================ -->
   <section class="card">
     <div class="kicker">The hardware</div>
     <h2>Arduino UNO + L298N + gearmotor with encoder</h2>
     <p>A single-direction velocity controller: the Arduino reads motor speed from a quadrature encoder,
-       runs the PID at 40&nbsp;Hz, and drives the motor through an L298N H-bridge with a PWM signal.</p>
+       runs the PID at 40&nbsp;Hz, and drives the motor through an L298N H-bridge with a PWM signal.
+       Schematic derived from the firmware <code>firmware/v1.ino</code>.</p>
 
-    <svg class="diagram" viewBox="0 0 720 300" role="img" aria-label="Block diagram: Arduino drives an L298N which powers the motor; the encoder feeds speed back to the Arduino.">
-      <!-- boxes -->
-      <rect class="d-box d-mcu" x="30" y="110" width="160" height="80" rx="10"/>
-      <text class="d-label" x="110" y="142" text-anchor="middle">Arduino UNO</text>
-      <text class="d-sub"   x="110" y="162" text-anchor="middle">PID @ 40 Hz</text>
+    <figure class="sheet">
+    <svg viewBox="0 0 1180 800" role="img"
+         aria-label="Schematic of a PID motor-speed controller: an Arduino UNO drives an L298N H-bridge which powers a REV HD Hex DC motor; the motor's quadrature encoder feeds channels A and B back to Arduino pins D2 and D3. A fused 12-volt supply powers the L298N and all grounds are common.">
+      <defs>
+        <pattern id="grid" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="1.2" cy="1.2" r="0.9" class="griddot"/>
+        </pattern>
+        <g id="gnd">
+          <line class="gsym" x1="0" y1="0" x2="0" y2="9"/>
+          <line class="gsym" x1="-11" y1="9" x2="11" y2="9"/>
+          <line class="gsym" x1="-6.5" y1="14" x2="6.5" y2="14"/>
+          <line class="gsym" x1="-2.5" y1="19" x2="2.5" y2="19"/>
+        </g>
+      </defs>
 
-      <rect class="d-box" x="290" y="110" width="150" height="80" rx="10"/>
-      <text class="d-label" x="365" y="142" text-anchor="middle">L298N</text>
-      <text class="d-sub"   x="365" y="162" text-anchor="middle">H-bridge driver</text>
+      <!-- sheet + grid + frame -->
+      <rect class="sheetbg" x="18" y="18" width="1144" height="764" rx="8"/>
+      <rect x="18" y="18" width="1144" height="764" rx="8" fill="url(#grid)"/>
+      <rect class="frame" x="30" y="30" width="1120" height="740" rx="4"/>
 
-      <rect class="d-box" x="540" y="110" width="150" height="80" rx="10"/>
-      <text class="d-label" x="615" y="142" text-anchor="middle">DC gearmotor</text>
-      <text class="d-sub"   x="615" y="162" text-anchor="middle">5:1 + encoder</text>
+      <!-- ================= WIRES (drawn first, boxes cover the ends) ============= -->
+      <!-- +12 V rail: supply + -> fuse -> L298N +12V -->
+      <path class="wire w-pwr12" d="M120,74 V58 H300"/>
+      <path class="wire w-pwr12" d="M352,58 H560 V155"/>
+      <text class="wlabel l-pwr12" x="430" y="50" text-anchor="middle">+12&#8202;V</text>
 
-      <!-- Arduino -> L298N (control) -->
-      <path class="d-wire" d="M190 140 H285"/>
-      <polygon class="d-arrow" points="285,140 277,136 277,144"/>
-      <text class="d-pin" x="238" y="132" text-anchor="middle">ENA·IN1·IN2</text>
-      <text class="d-sub" x="238" y="103" text-anchor="middle" style="font-size:10px">pins 5 · 7 · 8</text>
+      <!-- control: D5 -> ENA (straight) -->
+      <path class="wire w-sig" d="M340,250 H430"/>
+      <text class="wlabel l-sig" x="385" y="243" text-anchor="middle">PWM</text>
+      <!-- control: D8 -> IN2 -->
+      <path class="wire w-sig" d="M340,290 H395 V380 H430"/>
+      <!-- control: D7 -> IN1 (hops over D8 at x=395) -->
+      <path class="wire w-sig" d="M340,330 H389 A6,6 0 0 0 401,330 H410 V320 H430"/>
+      <text class="wlabel l-sig" x="360" y="312" text-anchor="middle">DIR</text>
 
-      <!-- L298N -> Motor (power) -->
-      <path class="d-wire-pwr" d="M440 140 H535"/>
-      <polygon class="d-arrow" points="535,140 527,136 527,144" style="fill:var(--warn)"/>
-      <text class="d-pin" x="487" y="132" text-anchor="middle" style="fill:var(--warn)">OUT1 / OUT2</text>
+      <!-- motor: OUT1 -> M+ , OUT2 -> M- -->
+      <path class="wire w-mot" d="M745,250 H895 V278 H958"/>
+      <path class="wire w-mot" d="M745,340 H875 V306 H958"/>
+      <text class="wlabel l-mot" x="822" y="243" text-anchor="middle">M+</text>
+      <text class="wlabel l-mot" x="812" y="356" text-anchor="middle">M&#8722;</text>
 
-      <!-- Motor encoder -> Arduino (feedback) -->
-      <path class="d-wire" d="M615 190 V245 H110 V190"/>
-      <polygon class="d-arrow" points="110,190 106,198 114,198"/>
-      <text class="d-pin" x="360" y="238" text-anchor="middle">encoder A / B  →  pins 2 · 3 (interrupts)</text>
+      <!-- encoder feedback A -> D2 -->
+      <path class="wire w-enc" d="M865,400 H790 V595 H360 V425 H340"/>
+      <!-- encoder feedback B -> D3 (hops over A's vertical at x=790) -->
+      <path class="wire w-enc" d="M865,428 H796 A6,6 0 0 1 784,428 H760 V560 H380 V390 H340"/>
+      <text class="wlabel l-enc" x="650" y="588" text-anchor="middle">ENC_A &#8594; D2</text>
+      <text class="wlabel l-enc" x="500" y="553" text-anchor="middle">ENC_B &#8594; D3</text>
 
-      <text class="d-sub" x="360" y="278" text-anchor="middle">solid = signal · orange = motor power · loop = speed feedback</text>
+      <!-- common ground bus: battery, UNO, L298N and encoder GND all tied together -->
+      <path class="wire w-gnd" d="M60,620 H1000 V470"/>
+      <path class="wire w-gnd" d="M235,460 V620"/>
+      <path class="wire w-gnd" d="M560,460 V554 A6,6 0 0 1 560,566 V589 A6,6 0 0 1 560,601 V620"/>
+      <circle class="jdot" cx="235" cy="620" r="3.5"/>
+      <circle class="jdot" cx="560" cy="620" r="3.5"/>
+      <use href="#gnd" x="60" y="620"/>
+      <text class="wlabel" x="820" y="612" style="fill:var(--muted)">GND</text>
+
+      <!-- ================= 12 V SUPPLY ========================================== -->
+      <g>
+        <line class="pin" x1="100" y1="74" x2="140" y2="74"/>
+        <line class="pin" x1="110" y1="84" x2="130" y2="84"/>
+        <line class="pin" x1="100" y1="94" x2="140" y2="94"/>
+        <line class="pin" x1="110" y1="104" x2="130" y2="104"/>
+        <line class="pin" x1="120" y1="74" x2="120" y2="58"/>
+        <path class="wire w-gnd" d="M120,104 V132 H60 V620"/>
+        <text class="plabel" x="147" y="80">12&#8202;V</text>
+        <text class="sub"    x="147" y="94">DC supply</text>
+        <text class="note"   x="128" y="70">+</text>
+      </g>
+
+      <!-- fuse F1 in the +12 V line -->
+      <g>
+        <rect class="box" x="300" y="50" width="52" height="16" rx="6"/>
+        <text class="note" x="326" y="44" text-anchor="middle" style="fill:var(--ink)">F1 &#183; 3&#8202;A</text>
+      </g>
+
+      <!-- ================= ARDUINO UNO ========================================== -->
+      <g>
+        <rect class="box" x="95" y="175" width="205" height="285" rx="8"/>
+        <text class="ttl" x="197" y="200" text-anchor="middle">Arduino UNO</text>
+        <text class="sub" x="197" y="216" text-anchor="middle">ATmega328P &#183; USB-powered</text>
+        <!-- USB port on the left -->
+        <rect class="box" x="70" y="228" width="25" height="26" rx="3"/>
+        <text class="note" x="66" y="245" text-anchor="end">USB</text>
+
+        <!-- right-edge pins -->
+        <line class="pin" x1="300" y1="250" x2="340" y2="250"/><text class="plabel" x="293" y="254" text-anchor="end">~D5</text>
+        <line class="pin" x1="300" y1="290" x2="340" y2="290"/><text class="plabel" x="293" y="294" text-anchor="end">D8</text>
+        <line class="pin" x1="300" y1="330" x2="340" y2="330"/><text class="plabel" x="293" y="334" text-anchor="end">D7</text>
+        <line class="pin" x1="300" y1="390" x2="340" y2="390"/><text class="plabel" x="293" y="394" text-anchor="end">D3</text>
+        <line class="pin" x1="300" y1="425" x2="340" y2="425"/><text class="plabel" x="293" y="429" text-anchor="end">D2</text>
+        <text class="note" x="293" y="372" text-anchor="end">INT pins</text>
+
+        <!-- bottom power pins -->
+        <line class="pin" x1="150" y1="460" x2="150" y2="478"/><text class="plabel" x="150" y="450" text-anchor="middle">5V</text>
+        <line class="pin" x1="235" y1="460" x2="235" y2="478"/><text class="plabel" x="235" y="450" text-anchor="middle">GND</text>
+      </g>
+      <!-- +5V flag on Arduino 5V -->
+      <g>
+        <rect x="127" y="482" width="46" height="20" rx="4" fill="var(--pwr5)" fill-opacity="0.12" stroke="var(--pwr5)" stroke-width="1.3"/>
+        <text class="wlabel l-pwr5" x="150" y="496" text-anchor="middle">+5V</text>
+      </g>
+
+      <!-- ================= L298N ================================================ -->
+      <g>
+        <rect class="box" x="470" y="175" width="235" height="285" rx="8"/>
+        <text class="ttl" x="587" y="200" text-anchor="middle">L298N</text>
+        <text class="sub" x="587" y="216" text-anchor="middle">dual H-bridge driver</text>
+
+        <!-- left input pins -->
+        <line class="pin" x1="470" y1="250" x2="430" y2="250"/><text class="plabel" x="477" y="254">ENA</text>
+        <line class="pin" x1="470" y1="320" x2="430" y2="320"/><text class="plabel" x="477" y="324">IN1</text>
+        <line class="pin" x1="470" y1="380" x2="430" y2="380"/><text class="plabel" x="477" y="384">IN2</text>
+        <text class="note" x="477" y="268">remove jumper</text>
+
+        <!-- right output pins -->
+        <line class="pin" x1="705" y1="250" x2="745" y2="250"/><text class="plabel" x="698" y="254" text-anchor="end">OUT1</text>
+        <line class="pin" x1="705" y1="340" x2="745" y2="340"/><text class="plabel" x="698" y="344" text-anchor="end">OUT2</text>
+
+        <!-- top power pins -->
+        <line class="pin" x1="560" y1="175" x2="560" y2="155"/><text class="plabel" x="551" y="170" text-anchor="end">+12V</text>
+        <line class="pin" x1="640" y1="175" x2="640" y2="158"/><text class="plabel" x="631" y="170" text-anchor="end">+5V</text>
+        <line class="gsym" x1="634" y1="152" x2="646" y2="164"/><line class="gsym" x1="646" y1="152" x2="634" y2="164"/>
+        <text class="note" x="654" y="150" text-anchor="start">leave open (n/c)</text>
+
+        <!-- bottom ground pin -->
+        <line class="pin" x1="560" y1="460" x2="560" y2="478"/><text class="plabel" x="560" y="450" text-anchor="middle">GND</text>
+
+        <!-- 5V-EN jumper glyph -->
+        <g>
+          <rect x="592" y="300" width="30" height="13" rx="2" fill="var(--ink)" opacity="0.85"/>
+          <circle cx="599" cy="306" r="1.6" fill="var(--sheet)"/><circle cx="615" cy="306" r="1.6" fill="var(--sheet)"/>
+          <text class="note" x="607" y="330" text-anchor="middle">5V-EN &#10003; keep</text>
+        </g>
+      </g>
+
+      <!-- ================= MOTOR + ENCODER (one device) ========================= -->
+      <rect class="encl" x="840" y="185" width="300" height="300" rx="10"/>
+      <text class="ttl" x="855" y="207" style="font-size:13px">REV HD Hex Motor</text>
+      <text class="sub" x="855" y="222">rev-41-1291 &#183; 5:1 gearbox &#183; encoder built in</text>
+
+      <!-- motor symbol -->
+      <g>
+        <circle class="box" cx="1000" cy="292" r="42"/>
+        <text class="ttl" x="1000" y="290" text-anchor="middle" style="font-size:20px">M</text>
+        <text class="sub" x="1000" y="307" text-anchor="middle">DC</text>
+        <line class="pin" x1="958" y1="278" x2="956" y2="278"/>
+        <line class="pin" x1="958" y1="306" x2="956" y2="306"/>
+        <!-- rotation arrow -->
+        <path d="M1046,278 A18,18 0 0 1 1046,306" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
+        <path d="M1046,306 l-5,-2 l1,6 z" fill="var(--muted)"/>
+        <text class="note" x="1055" y="296" text-anchor="start">spin</text>
+      </g>
+
+      <!-- encoder sub-block -->
+      <g>
+        <rect class="box" x="905" y="360" width="205" height="110" rx="6"/>
+        <text class="ttl" x="1007" y="381" text-anchor="middle" style="font-size:13px">Encoder</text>
+        <text class="sub" x="1015" y="396" text-anchor="middle">quadrature &#183; 70 cnt/rev</text>
+        <line class="pin" x1="905" y1="400" x2="865" y2="400"/><text class="plabel" x="912" y="404">A</text>
+        <line class="pin" x1="905" y1="428" x2="865" y2="428"/><text class="plabel" x="912" y="432">B</text>
+        <line class="pin" x1="905" y1="456" x2="865" y2="456"/><text class="plabel" x="912" y="460">+5V</text>
+        <line class="pin" x1="1000" y1="470" x2="1000" y2="490"/><text class="plabel" x="1000" y="450" text-anchor="middle">GND</text>
+      </g>
+      <!-- +5V flag on encoder -->
+      <g>
+        <line class="wire w-pwr5" x1="865" y1="456" x2="845" y2="456"/>
+        <rect x="795" y="446" width="46" height="20" rx="4" fill="var(--pwr5)" fill-opacity="0.12" stroke="var(--pwr5)" stroke-width="1.3"/>
+        <text class="wlabel l-pwr5" x="818" y="460" text-anchor="middle">+5V</text>
+      </g>
+
+      <!-- ================= LEGEND (bottom-left) ================================= -->
+      <g>
+        <rect class="tblk" x="30" y="648" width="636" height="118" rx="4"/>
+        <line class="tblk-fine" x1="360" y1="648" x2="360" y2="766"/>
+        <text class="tkey" x="46" y="670">SYMBOLS</text>
+        <text class="tkey" x="378" y="670">WIRE NETS</text>
+
+        <!-- symbols column -->
+        <use href="#gnd" x="60" y="686"/>
+        <text class="note" x="90" y="700" style="fill:var(--ink)">Common ground &#8212; tie all GND together</text>
+
+        <rect x="48" y="712" width="30" height="16" rx="4" fill="var(--pwr5)" fill-opacity="0.12" stroke="var(--pwr5)" stroke-width="1.2"/>
+        <text class="wlabel l-pwr5" x="63" y="724" text-anchor="middle" style="font-size:9px">+5V</text>
+        <text class="note" x="90" y="724" style="fill:var(--ink)">named net (same name = connected)</text>
+
+        <path class="wire w-sig" d="M50,748 h20"/>
+        <path class="wire w-enc" d="M60,740 v16"/>
+        <text class="note" x="90" y="752" style="fill:var(--ink)">crossing without a dot = not connected</text>
+
+        <!-- wire-colour key -->
+        <g>
+          <rect x="380" y="680" width="12" height="11" rx="2" fill="var(--pwr12)"/><text class="note" x="398" y="689" style="fill:var(--ink)">+12 V power</text>
+          <rect x="380" y="704" width="12" height="11" rx="2" fill="var(--pwr5)"/><text class="note" x="398" y="713" style="fill:var(--ink)">+5 V logic</text>
+          <rect x="380" y="728" width="12" height="11" rx="2" fill="var(--sig)"/><text class="note" x="398" y="737" style="fill:var(--ink)">control (PWM / DIR)</text>
+          <rect x="530" y="680" width="12" height="11" rx="2" fill="var(--mot)"/><text class="note" x="548" y="689" style="fill:var(--ink)">motor output</text>
+          <rect x="530" y="704" width="12" height="11" rx="2" fill="var(--enc)"/><text class="note" x="548" y="713" style="fill:var(--ink)">encoder feedback</text>
+          <rect x="530" y="728" width="12" height="11" rx="2" fill="var(--ink)"/><text class="note" x="548" y="737" style="fill:var(--ink)">ground</text>
+        </g>
+      </g>
+
+      <!-- ================= TITLE BLOCK (bottom-right) =========================== -->
+      <g>
+        <rect class="tblk" x="700" y="648" width="450" height="114" rx="4"/>
+        <line class="tblk" x1="700" y1="690" x2="1150" y2="690"/>
+        <line class="tblk-fine" x1="700" y1="726" x2="1150" y2="726"/>
+        <line class="tblk-fine" x1="828" y1="690" x2="828" y2="762"/>
+        <line class="tblk-fine" x1="960" y1="690" x2="960" y2="762"/>
+        <line class="tblk-fine" x1="1050" y1="726" x2="1050" y2="762"/>
+
+        <text class="ttl" x="716" y="676" style="font-size:16px">PID MOTOR-SPEED CONTROLLER</text>
+        <text class="tval" x="1134" y="676" text-anchor="end" style="font-size:11px;fill:var(--muted)">SHEET 1 / 1</text>
+
+        <text class="tkey" x="716" y="704">PROJECT</text><text class="tval" x="716" y="719">PID Playground &#183; v1</text>
+        <text class="tkey" x="842" y="704">SOURCE</text><text class="tval" x="842" y="719">v1.ino</text>
+        <text class="tkey" x="974" y="704">REV</text><text class="tval" x="974" y="719">1.0</text>
+
+        <text class="tkey" x="716" y="740">DATE</text><text class="tval" x="716" y="755">2026-07-15</text>
+        <text class="tkey" x="842" y="740">SCALE</text><text class="tval" x="842" y="755">NTS</text>
+        <text class="tkey" x="974" y="740">DRAWN BY</text><text class="tval" x="974" y="755" style="fill:var(--muted)">________</text>
+        <text class="tkey" x="1064" y="740">CHECKED</text><text class="tval" x="1064" y="755" style="fill:var(--muted)">________</text>
+      </g>
     </svg>
+    </figure>
+    <p class="caption">Signal flow: you set a target RPM &#8594; the PID (in the UNO) sets a PWM duty on ENA &#8594;
+      the L298N drives the motor &#8594; the encoder measures real speed &#8594; that feeds back to D2/D3, closing the loop.</p>
 
-    <h3>Pin map</h3>
-    <table>
-      <thead><tr><th>Arduino pin</th><th>Connects to</th><th>Purpose</th></tr></thead>
-      <tbody>
-        <tr><td class="mono">D5 (PWM)</td><td class="mono">L298N ENA</td><td>motor speed (PWM 0–255)</td></tr>
-        <tr><td class="mono">D7</td><td class="mono">L298N IN1</td><td>direction</td></tr>
-        <tr><td class="mono">D8</td><td class="mono">L298N IN2</td><td>direction</td></tr>
-        <tr><td class="mono">D2 (INT0)</td><td class="mono">encoder A</td><td>quadrature channel A</td></tr>
-        <tr><td class="mono">D3 (INT1)</td><td class="mono">encoder B</td><td>quadrature channel B</td></tr>
-        <tr><td class="mono">GND</td><td class="mono">L298N &amp; encoder GND</td><td>common ground (required)</td></tr>
-      </tbody>
-    </table>
-    <div class="note">Power the motor from the L298N's own supply, not the Arduino's 5&nbsp;V. Always tie all
+    <div class="note">Power the motor from the L298N's own 12&nbsp;V supply, not the Arduino's 5&nbsp;V. Always tie all
       grounds together. Adjust <code>COUNTS_PER_OUTPUT_REV</code> in the firmware to your encoder + gearing
       so reported RPM is correct.</div>
+  </section>
+
+  <!-- ==================== BOM + netlist ==================== -->
+  <section class="card">
+    <div class="kicker">Parts &amp; connections</div>
+    <h2>Bill of materials</h2>
+    <table>
+      <thead><tr><th>Ref</th><th>Component</th><th>Spec</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">U1</td><td>Arduino UNO</td><td class="mono">ATmega328P</td><td>Runs the PID; powered over USB</td></tr>
+        <tr><td class="mono">DR1</td><td>L298N dual H-bridge</td><td class="mono">~2 A / ch</td><td>Remove ENA jumper; keep 5V-EN; +5V terminal open</td></tr>
+        <tr><td class="mono">M1</td><td>REV HD Hex motor</td><td class="mono">rev-41-1291</td><td>5:1 gearbox; <span class="danger">~8.5 A stall</span> — test with no load</td></tr>
+        <tr><td class="mono">ENC1</td><td>Quadrature encoder</td><td class="mono">70 cnt/rev</td><td>Built into M1; counts per output-shaft rev (see firmware)</td></tr>
+        <tr><td class="mono">PS1</td><td>DC power supply</td><td class="mono">12 V</td><td>Shares common ground with U1 &amp; DR1</td></tr>
+        <tr><td class="mono">F1</td><td>Fuse</td><td class="mono">3 A</td><td>In the +12 V feed to DR1</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Connections (netlist)</h3>
+    <table>
+      <thead><tr><th>From</th><th>To</th><th>Net</th><th>Function</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">UNO ~D5</td><td class="mono">L298N ENA</td><td><span class="chip" style="color:var(--sig)">PWM</span></td><td>Motor speed (0–255)</td></tr>
+        <tr><td class="mono">UNO D7</td><td class="mono">L298N IN1</td><td><span class="chip" style="color:var(--sig)">DIR</span></td><td>Direction</td></tr>
+        <tr><td class="mono">UNO D8</td><td class="mono">L298N IN2</td><td><span class="chip" style="color:var(--sig)">DIR</span></td><td>Direction</td></tr>
+        <tr><td class="mono">L298N OUT1</td><td class="mono">Motor +</td><td><span class="chip" style="color:var(--mot)">M+</span></td><td rowspan="2">Motor power (swap to reverse)</td></tr>
+        <tr><td class="mono">L298N OUT2</td><td class="mono">Motor &#8722;</td><td><span class="chip" style="color:var(--mot)">M&#8722;</span></td></tr>
+        <tr><td class="mono">PS1 + (via F1)</td><td class="mono">L298N +12V</td><td><span class="chip" style="color:var(--pwr12)">+12V</span></td><td>H-bridge supply</td></tr>
+        <tr><td class="mono">Encoder A</td><td class="mono">UNO D2</td><td><span class="chip" style="color:var(--enc)">ENC_A</span></td><td>Speed feedback (INT0)</td></tr>
+        <tr><td class="mono">Encoder B</td><td class="mono">UNO D3</td><td><span class="chip" style="color:var(--enc)">ENC_B</span></td><td>Count direction (INT1)</td></tr>
+        <tr><td class="mono">Encoder +5V</td><td class="mono">UNO 5V</td><td><span class="chip" style="color:var(--amber)">+5V</span></td><td>Encoder power</td></tr>
+        <tr><td class="mono">All GND</td><td class="mono">Common</td><td><span class="chip" style="color:var(--muted)">GND</span></td><td>U1 + DR1 + PS1 + ENC1 tied together</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ==================== Checklist ==================== -->
+  <section class="card">
+    <div class="kicker">Before you power up</div>
+    <h2>Build &amp; safety checklist</h2>
+    <ol class="checks">
+      <li><strong>Remove the L298N <code>ENA</code> jumper</strong> so D5's PWM actually controls the speed.</li>
+      <li><strong>Keep the 5V-EN jumper installed</strong> and <strong>leave the L298N +5V screw terminal empty</strong> — the Arduino runs from USB.</li>
+      <li><strong>Tie every ground together</strong> (Arduino, L298N, and the 12&nbsp;V supply). This is the single most
+          important connection — without a shared ground nothing works reliably.</li>
+      <li><strong>Encoder A &#8594; D2, B &#8594; D3.</strong> Those are the UNO's only external-interrupt pins; the
+          encoder ISR needs them.</li>
+      <li class="danger">Bench-test with the shaft free and NO load. The L298N handles ~2&nbsp;A; a stalled motor pulls
+          ~8.5&nbsp;A and will destroy the driver. The 3&nbsp;A fuse is your backstop — this v1 firmware has no stall cutoff.</li>
+      <li>Serial Monitor / Serial Plotter at <strong>115200 baud, "Newline"</strong>. Type an RPM (e.g. <code>300</code>)
+          to run; <code>s</code> to stop; <code>p/i/d &lt;value&gt;</code> to tune live — or connect straight from the
+          Playground's Hardware mode.</li>
+    </ol>
   </section>
 
   <!-- ============================ The loop ============================ -->
