@@ -132,6 +132,7 @@ header{
   border:1px solid var(--line-strong);background:var(--panel-2);color:var(--ink);
   padding:9px 14px;border-radius:10px;font-size:.86rem;font-weight:600;cursor:pointer;
   display:inline-flex;align-items:center;gap:8px;justify-content:center;
+  text-decoration:none;
 }
 .btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent-ink)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
@@ -294,6 +295,8 @@ footer .status-line{margin-top:6px;min-height:1.2em;color:var(--muted);font-fami
     <div class="conn">
       <span class="status"><span class="dot idle" id="statusDot"></span><span id="statusText">Simulator</span></span>
       <button class="btn primary hidden" id="connectBtn">Connect Arduino</button>
+      <a class="btn" href="docs/wiring-and-pid.html" target="_blank" rel="noopener"
+         title="Hardware wiring diagram and PID theory guide">Wiring &amp; PID</a>
       <button class="btn icon-btn" id="themeBtn" title="Theme: system" aria-label="Toggle color theme">◐</button>
     </div>
   </header>
